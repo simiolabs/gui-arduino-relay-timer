@@ -1,0 +1,2 @@
+# gui-arduino-relay-timer
+This program attempts to control a pool pump using an Arduino, a touch screen LCD, a DS1307 Real Time Clock and a relay. The controller checks the start time, when the current time is greater than this, the pump is turned on. After the current time is greater than the end time pump is turned off. A uLCD-32PTU from 4D Systems is attached as GUI to interact with the program.
