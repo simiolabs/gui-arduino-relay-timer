@@ -51,9 +51,10 @@
 #define USER_BUTTON8  0x08
 #define USER_BUTTON9  0x09
 
-#define DS1307_ADDRESS 0x68  // RTC
-#define LCD_RESET 2          // LCD reset line
-#define RELAY     13         // output to relay
+#define DS1307_ADDRESS  0x68  // RTC
+#define LCD_RESET       2     // LCD reset line
+#define RELAY           13    // output to relay
+#define EEPROM_START    32
 
 // states
 enum TimerState {
@@ -63,10 +64,13 @@ enum TimerState {
 };
 
 // global variables
-int startMinValue = 0;
-int startHourValue = 0;
-int endMinValue = 0;
-int endHourValue = 0;
+struct TimeConfig {
+  int startMinValue = 0;
+  int startHourValue = 0;
+  int endMinValue = 0;
+  int endHourValue = 0;
+};
+
 int elapsedMinValue = 0;
 int elapsedHourValue = 0;
 int timeDateBuf[7];
@@ -76,6 +80,7 @@ Genie genie;
 SimpleTimer increaseCounterTimer;
 SimpleTimer checkStartScheduleTimer;
 SimpleTimer checkEndScheduleTimer;
+TimeConfig config;
 #ifdef DEBUG
 SoftwareSerial DisplaySerial(10, 11);
 #endif
@@ -109,6 +114,11 @@ void setup()
   delay(100);
   digitalWrite(LCD_RESET, 1);
   delay (3500); //let the display start up after the reset
+  
+  // get start and end time
+  //saveTimeConfig();
+  readTimeConfig();
+  
   // start up in idle mode
   state = idle;
 }
@@ -207,34 +217,38 @@ void myGenieEventHandler(void)
         genie.WriteObject(GENIE_OBJ_FORM, FORM1, 0);
       }
       if (Event.reportObject.index == USER_BUTTON3) {
-        increaseClock(LED_DIG0, &startHourValue, &startMinValue, 15);
+        increaseClock(LED_DIG0, &config.startHourValue, &config.startMinValue, 15);
       }
       if (Event.reportObject.index == USER_BUTTON4) {                     
-        decreaseClock(LED_DIG0, &startHourValue, &startMinValue, 15);
+        decreaseClock(LED_DIG0, &config.startHourValue, &config.startMinValue, 15);
       }
       if (Event.reportObject.index == USER_BUTTON5) {        
         genie.WriteObject(GENIE_OBJ_FORM, FORM2, 0);
+        // save start time to EEPROM
+        saveTimeConfig();
 #ifdef DEBUG
         Serial.print("start time: ");
-        Serial.print(startHourValue / 100);
+        Serial.print(config.startHourValue / 100);
         Serial.print(":");
-        Serial.println(startMinValue);
+        Serial.println(config.startMinValue);
 #endif
       }
       if (Event.reportObject.index == USER_BUTTON6) {
-        increaseClock(LED_DIG1, &endHourValue, &endMinValue, 15);
+        increaseClock(LED_DIG1, &config.endHourValue, &config.endMinValue, 15);
       }
       if (Event.reportObject.index == USER_BUTTON7) {                     
-        decreaseClock(LED_DIG1, &endHourValue, &endMinValue, 15);
+        decreaseClock(LED_DIG1, &config.endHourValue, &config.endMinValue, 15);
       }
       if (Event.reportObject.index == USER_BUTTON8) {
         checkStartScheduleTimer.enable(0);        
         genie.WriteObject(GENIE_OBJ_FORM, FORM0, 0);
+        // save start time to EEPROM
+        saveTimeConfig();
 #ifdef DEBUG
         Serial.print("end time: ");
-        Serial.print(endHourValue / 100);
+        Serial.print(config.endHourValue / 100);
         Serial.print(":");
-        Serial.println(endMinValue);
+        Serial.println(config.endMinValue);
 #endif
       }
       if (Event.reportObject.index == USER_BUTTON9) {
@@ -289,8 +303,8 @@ void printDate(int *buf) {
 void checkStartScheduleFunction() {
   readDate(timeDateBuf);
   int currentMin = timeDateBuf[2] * 100 + timeDateBuf[1]; // hours * 60 + minutes
-  int startMin = startHourValue + startMinValue;
-  int endMin = endHourValue + endMinValue;
+  int startMin = config.startHourValue + config.startMinValue;
+  int endMin = config.endHourValue + config.endMinValue;
 #ifdef DEBUG
   printDate(timeDateBuf);
   Serial.print("currentMin: ");
@@ -309,8 +323,7 @@ void checkStartScheduleFunction() {
 void checkEndScheduleFunction() {
   readDate(timeDateBuf);
   int currentMin = timeDateBuf[2] * 100 + timeDateBuf[1]; //hours * 60 + minutes
-  int startMin = startHourValue + startMinValue;
-  int endMin = endHourValue + endMinValue;
+  int endMin = config.endHourValue + config.endMinValue;
 #ifdef DEBUG
   printDate(timeDateBuf);
   Serial.print("currentMin: ");
@@ -324,23 +337,23 @@ void checkEndScheduleFunction() {
 }
 
 // save start time to EEPROM
-bool saveStartTime(int startTime) {
-  return EEPROM.writeInt(0, startTime);
-}
-
-// save end time to EEPROM
-bool saveEndTime(int endTime) {
-  return EEPROM.writeInt(1, endTime);
+bool saveTimeConfig() {
+  return EEPROM.writeBlock(EEPROM_START, config);
 }
 
 // recover start and end times from EEPROM
-void getStartEndTime(int *startTime, int *endTime) {
-  *startTime = EEPROM.readInt(0);
-  *endTime = EEPROM.readInt(1);
+void readTimeConfig() {
+  TimeConfig readTimeConfig;
+  EEPROM.readBlock(EEPROM_START, readTimeConfig);
+  config = readTimeConfig;
+  // update LED digits
+  increaseClock(LED_DIG0, &config.startHourValue, &config.startMinValue, 0);
+  increaseClock(LED_DIG1, &config.endHourValue, &config.endMinValue, 0);
+  
 #ifdef DEBUG
   Serial.print("recovered start time: ");
-  Serial.print(*startTime);
+  Serial.println(config.startHourValue + config.startMinValue);
   Serial.print("recovered end time: ");
-  Serial.print(*endTime);
+  Serial.println(config.endHourValue + config.endMinValue);
 #endif
 }
