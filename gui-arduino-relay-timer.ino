@@ -53,7 +53,8 @@
 
 #define DS1307_ADDRESS  0x68  // RTC
 #define LCD_RESET       2     // LCD reset line
-#define RELAY           13    // output to relay
+#define RELAY1          8     // output to relay 1
+#define RELAY2          9     // output to relay 2
 #define EEPROM_START    32
 
 // states
@@ -106,8 +107,10 @@ void setup()
   checkEndScheduleTimer.setInterval(1000, checkEndScheduleFunction);
   checkEndScheduleTimer.disable(0);
   // set up output
-  pinMode(RELAY, OUTPUT);
-  digitalWrite(RELAY, LOW);
+  pinMode(RELAY1, OUTPUT);
+  pinMode(RELAY2, OUTPUT);
+  digitalWrite(RELAY1, LOW);
+  digitalWrite(RELAY2, LOW);
   // reset LCD
   pinMode(LCD_RESET, OUTPUT);
   digitalWrite(LCD_RESET, 0);
@@ -166,7 +169,8 @@ void increaseCounterTimerFunction() {
 
 // switch to run state
 void goToRunState() {
-  digitalWrite(RELAY, HIGH); // turn on relay
+  digitalWrite(RELAY1, HIGH); // turn on relays
+  digitalWrite(RELAY2, HIGH);
 #ifdef DEBUG
   Serial.println("relay on");
 #endif
@@ -180,7 +184,8 @@ void goToRunState() {
 // switch to idle state
 void goToIdleState() {
   state = idle;
-  digitalWrite(RELAY, LOW); // turn off relay
+  digitalWrite(RELAY1, LOW); // turn off relays
+  digitalWrite(RELAY2, LOW);
 #ifdef DEBUG
   Serial.println("relay off");
 #endif
